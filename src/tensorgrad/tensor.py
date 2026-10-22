@@ -2,11 +2,27 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+import contextlib
+from collections.abc import Callable, Iterable, Iterator
 
 import numpy as np
 
 ArrayLike = np.ndarray | float | int | list | tuple
+
+
+_grad_enabled = True
+
+
+@contextlib.contextmanager
+def no_grad() -> Iterator[None]:
+    """Disables graph construction inside the block (for inference)."""
+    global _grad_enabled
+    previous = _grad_enabled
+    _grad_enabled = False
+    try:
+        yield
+    finally:
+        _grad_enabled = previous
 
 
 def _unbroadcast(grad: np.ndarray, shape: tuple[int, ...]) -> np.ndarray:
@@ -79,7 +95,7 @@ class Tensor:
 
     def _make(self, data: np.ndarray, parents: tuple[Tensor, ...], op: str) -> Tensor:
         """Creates a result tensor that tracks gradients if any parent does."""
-        requires_grad = any(p.requires_grad for p in parents)
+        requires_grad = _grad_enabled and any(p.requires_grad for p in parents)
         return Tensor(data, requires_grad, parents if requires_grad else (), op)
 
     def _accumulate(self, grad: np.ndarray) -> None:
