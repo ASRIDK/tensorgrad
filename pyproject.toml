@@ -27,3 +27,5 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "SIM"]
+# `import functional as F` is the conventional alias, as in PyTorch.
+ignore = ["N812"]
