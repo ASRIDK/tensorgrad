@@ -144,6 +144,188 @@ class Tensor:
     def __rtruediv__(self, other: ArrayLike) -> Tensor:
         return self._lift(other) / self
 
+    def __matmul__(self, other: Tensor | ArrayLike) -> Tensor:
+        other = self._lift(other)
+        if self.ndim < 2 or other.ndim < 2:
+            raise ValueError("matmul operands must have at least 2 dimensions")
+        out = self._make(self.data @ other.data, (self, other), "matmul")
+
+        def backward() -> None:
+            self._accumulate(out.grad @ np.swapaxes(other.data, -1, -2))
+            other._accumulate(np.swapaxes(self.data, -1, -2) @ out.grad)
+
+        out._backward = backward
+        return out
+
+    def __rmatmul__(self, other: ArrayLike) -> Tensor:
+        return self._lift(other) @ self
+
+    # ------------------------------------------------------------- reductions
+
+    def sum(self, axis: int | tuple[int, ...] | None = None, keepdims: bool = False) -> Tensor:
+        out = self._make(self.data.sum(axis=axis, keepdims=keepdims), (self,), "sum")
+
+        def backward() -> None:
+            grad = out.grad
+            if axis is not None and not keepdims:
+                grad = np.expand_dims(grad, axis)
+            self._accumulate(np.broadcast_to(grad, self.shape))
+
+        out._backward = backward
+        return out
+
+    def mean(self, axis: int | tuple[int, ...] | None = None, keepdims: bool = False) -> Tensor:
+        axes = range(self.ndim) if axis is None else np.atleast_1d(axis)
+        count = int(np.prod([self.shape[a] for a in axes]))
+        return self.sum(axis=axis, keepdims=keepdims) / count
+
+    def max(self, axis: int | None = None, keepdims: bool = False) -> Tensor:
+        value = self.data.max(axis=axis, keepdims=True)
+        out = self._make(value if keepdims else value.squeeze(axis=axis), (self,), "max")
+
+        def backward() -> None:
+            # Split the gradient evenly between tied maxima.
+            mask = (self.data == value).astype(np.float64)
+            mask /= mask.sum(axis=axis, keepdims=True)
+            grad = (
+                out.grad if keepdims else np.expand_dims(out.grad, axis if axis is not None else ())
+            )
+            self._accumulate(mask * grad)
+
+        out._backward = backward
+        return out
+
+    def logsumexp(self, axis: int = -1, keepdims: bool = False) -> Tensor:
+        """Numerically stable log(sum(exp(x))) along `axis`."""
+        shift = self.data.max(axis=axis, keepdims=True)
+        exp = np.exp(self.data - shift)
+        total = exp.sum(axis=axis, keepdims=True)
+        value = shift + np.log(total)
+        out = self._make(value if keepdims else value.squeeze(axis=axis), (self,), "logsumexp")
+
+        def backward() -> None:
+            grad = out.grad if keepdims else np.expand_dims(out.grad, axis)
+            self._accumulate(grad * exp / total)  # d/dx logsumexp = softmax(x)
+
+        out._backward = backward
+        return out
+
+    # ------------------------------------------------------ elementwise maths
+
+    def exp(self) -> Tensor:
+        value = np.exp(self.data)
+        out = self._make(value, (self,), "exp")
+
+        def backward() -> None:
+            self._accumulate(out.grad * value)
+
+        out._backward = backward
+        return out
+
+    def log(self) -> Tensor:
+        out = self._make(np.log(self.data), (self,), "log")
+
+        def backward() -> None:
+            self._accumulate(out.grad / self.data)
+
+        out._backward = backward
+        return out
+
+    def sqrt(self) -> Tensor:
+        return self**0.5
+
+    def abs(self) -> Tensor:
+        out = self._make(np.abs(self.data), (self,), "abs")
+
+        def backward() -> None:
+            self._accumulate(out.grad * np.sign(self.data))
+
+        out._backward = backward
+        return out
+
+    def relu(self) -> Tensor:
+        out = self._make(np.maximum(self.data, 0.0), (self,), "relu")
+
+        def backward() -> None:
+            self._accumulate(out.grad * (self.data > 0))
+
+        out._backward = backward
+        return out
+
+    def tanh(self) -> Tensor:
+        value = np.tanh(self.data)
+        out = self._make(value, (self,), "tanh")
+
+        def backward() -> None:
+            self._accumulate(out.grad * (1.0 - value**2))
+
+        out._backward = backward
+        return out
+
+    def sigmoid(self) -> Tensor:
+        # Stable for large |x|: 1/(1+e^-x) for x>=0 and e^x/(1+e^x) otherwise.
+        e = np.exp(-np.abs(self.data))
+        value = np.where(self.data >= 0, 1.0 / (1.0 + e), e / (1.0 + e))
+        out = self._make(value, (self,), "sigmoid")
+
+        def backward() -> None:
+            self._accumulate(out.grad * value * (1.0 - value))
+
+        out._backward = backward
+        return out
+
+    def softplus(self) -> Tensor:
+        """log(1 + e^x), computed without overflow."""
+        x = self.data
+        out = self._make(np.logaddexp(0.0, x), (self,), "softplus")
+
+        def backward() -> None:
+            self._accumulate(out.grad / (1.0 + np.exp(-x)))
+
+        out._backward = backward
+        return out
+
+    # ------------------------------------------------------- shape operations
+
+    def reshape(self, *shape: int) -> Tensor:
+        if len(shape) == 1 and isinstance(shape[0], tuple | list):
+            shape = tuple(shape[0])
+        out = self._make(self.data.reshape(shape), (self,), "reshape")
+
+        def backward() -> None:
+            self._accumulate(out.grad.reshape(self.shape))
+
+        out._backward = backward
+        return out
+
+    def transpose(self, *axes: int) -> Tensor:
+        axes_or_none = axes if axes else None
+        out = self._make(np.transpose(self.data, axes_or_none), (self,), "transpose")
+
+        def backward() -> None:
+            inverse = np.argsort(axes) if axes else None
+            self._accumulate(np.transpose(out.grad, inverse))
+
+        out._backward = backward
+        return out
+
+    @property
+    def T(self) -> Tensor:  # noqa: N802 - mirrors the NumPy attribute
+        return self.transpose()
+
+    def __getitem__(self, index) -> Tensor:
+        if isinstance(index, Tensor):
+            index = index.data.astype(np.int64)
+        out = self._make(self.data[index], (self,), "getitem")
+
+        def backward() -> None:
+            grad = np.zeros_like(self.data)
+            np.add.at(grad, index, out.grad)  # handles repeated indices
+            self._accumulate(grad)
+
+        out._backward = backward
+        return out
+
     # --------------------------------------------------------------- autodiff
 
     def backward(self, grad: ArrayLike | None = None) -> None:
@@ -165,7 +347,8 @@ class Tensor:
                 node.grad = None
         self.grad = np.asarray(grad, dtype=np.float64).reshape(self.shape)
         for node in reversed(order):
-            if node._backward is not None:
+            # Constants sit in the graph as operands but never propagate gradients.
+            if node.requires_grad and node._backward is not None:
                 node._backward()
 
     def zero_grad(self) -> None:
