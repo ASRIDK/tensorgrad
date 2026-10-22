@@ -133,8 +133,8 @@ def __mul__(self, other):
     out = Tensor(self.data * other.data, parents=(self, other))
 
     def backward():
-        self._accumulate(out.grad * other.data)   # ∂(a·b)/∂a = b
-        other._accumulate(out.grad * self.data)   # ∂(a·b)/∂b = a
+        self._accumulate(out.grad * other.data)  # ∂(a·b)/∂a = b
+        other._accumulate(out.grad * self.data)  # ∂(a·b)/∂b = a
 
     out._backward = backward
     return out
@@ -166,7 +166,7 @@ model = nn.Sequential(nn.Linear(4, 64, init="xavier"), nn.Tanh(), nn.Linear(64, 
 opt = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-2)
 schedule = optim.CosineAnnealingLR(opt, total_steps=10_000)
 
-with no_grad():                      # inference without building a graph
+with no_grad():  # inference without building a graph
     prediction = model(Tensor(features))
 
 gradcheck(lambda w: (w @ w.T).tanh(), [Tensor(np.random.randn(3, 3), requires_grad=True)])
