@@ -133,3 +133,23 @@ def clip_grad_norm(params: Iterable[Parameter], max_norm: float) -> float:
         for g in grads:
             g *= scale
     return total
+
+
+class CosineAnnealingLR:
+    """Decays an optimizer's learning rate from its initial value to `min_lr`
+    along a half cosine over `total_steps` calls to :meth:`step`."""
+
+    def __init__(self, optimizer: Optimizer, total_steps: int, min_lr: float = 0.0) -> None:
+        if total_steps <= 0:
+            raise ValueError("total_steps must be positive")
+        self.optimizer = optimizer
+        self.base_lr = optimizer.lr
+        self.min_lr = min_lr
+        self.total_steps = total_steps
+        self.steps = 0
+
+    def step(self) -> None:
+        self.steps = min(self.steps + 1, self.total_steps)
+        progress = self.steps / self.total_steps
+        cosine = 0.5 * (1.0 + np.cos(np.pi * progress))
+        self.optimizer.lr = self.min_lr + (self.base_lr - self.min_lr) * cosine

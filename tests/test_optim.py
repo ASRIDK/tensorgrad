@@ -78,3 +78,14 @@ def test_clip_grad_norm():
 def test_optimizer_rejects_empty_parameters():
     with pytest.raises(ValueError):
         optim.SGD([], lr=0.1)
+
+
+def test_cosine_annealing_schedule():
+    p = nn.Parameter(np.zeros(1))
+    opt = optim.SGD([p], lr=1.0)
+    schedule = optim.CosineAnnealingLR(opt, total_steps=4, min_lr=0.0)
+    lrs = []
+    for _ in range(6):
+        schedule.step()
+        lrs.append(opt.lr)
+    np.testing.assert_allclose(lrs, [0.8535534, 0.5, 0.1464466, 0.0, 0.0, 0.0], atol=1e-6)
