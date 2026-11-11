@@ -41,7 +41,7 @@ through the trained network — the same idea behind differential machine learni
 - **Neural networks** — `Module` with recursive parameter discovery, `train()`/`eval()`,
   `state_dict()`; `Linear` (He or Xavier initialization), `Sequential`, activations and `Dropout`.
 - **Losses** — MSE, Huber, cross-entropy (via log-softmax) and binary cross-entropy with logits.
-- **Optimizers** — SGD with (Nesterov) momentum, Adam, AdamW, cosine learning-rate annealing and
+- **Optimizers** — SGD with (Nesterov) momentum, Adam, AdamW, RMSprop, step and cosine learning-rate annealing and
   gradient-norm clipping.
 - **Data** — mini-batch `DataLoader`, `train_test_split` and `StandardScaler`.
 - **Verified** — every differentiable operation is checked against central finite differences.
@@ -150,7 +150,7 @@ PyTorch) until `zero_grad()` clears them.
 | `tensorgrad.tensor`        | `Tensor`, the operator set, `backward()`, `no_grad()`        |
 | `tensorgrad.nn`            | `Parameter`, `Module`, layers and activations                |
 | `tensorgrad.functional`    | `softmax`, `log_softmax` and the loss functions              |
-| `tensorgrad.optim`         | `SGD`, `Adam`, `AdamW`, `CosineAnnealingLR`, `clip_grad_norm`|
+| `tensorgrad.optim`         | `SGD`, `Adam`, `AdamW`, `RMSprop`, LR schedulers, `clip_grad_norm`  |
 | `tensorgrad.data`          | `DataLoader`, `train_test_split`, `StandardScaler`           |
 | `tensorgrad.gradcheck`     | Finite-difference gradient verification                      |
 
