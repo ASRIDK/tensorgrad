@@ -89,3 +89,49 @@ def test_cosine_annealing_schedule():
         schedule.step()
         lrs.append(opt.lr)
     np.testing.assert_allclose(lrs, [0.8535534, 0.5, 0.1464466, 0.0, 0.0, 0.0], atol=1e-6)
+
+
+def test_rmsprop_matches_reference_update():
+    p = nn.Parameter(np.array([1.0, -2.0]))
+    opt = optim.RMSprop([p], lr=0.1, alpha=0.9, eps=1e-8)
+    p.grad = np.array([0.5, -1.0])
+    opt.step()
+    sq = 0.1 * p.grad**2
+    expected = np.array([1.0, -2.0]) - 0.1 * p.grad / (np.sqrt(sq) + 1e-8)
+    np.testing.assert_allclose(p.data, expected)
+
+
+def test_rmsprop_minimizes_a_quadratic():
+    p = nn.Parameter(np.array([5.0, -3.0]))
+    opt = optim.RMSprop([p], lr=0.05)
+    for _ in range(500):
+        opt.zero_grad()
+        ((p - 1.0) ** 2).sum().backward()
+        opt.step()
+    np.testing.assert_allclose(p.data, [1.0, 1.0], atol=0.1)
+
+
+def test_rmsprop_validates_alpha_and_skips_missing_grads():
+    with pytest.raises(ValueError):
+        optim.RMSprop([nn.Parameter(np.zeros(1))], alpha=1.0)
+    p = nn.Parameter(np.array([1.0]))
+    optim.RMSprop([p]).step()  # grad is None: parameter untouched
+    assert p.data[0] == 1.0
+
+
+def test_step_lr_schedule():
+    opt = optim.SGD([nn.Parameter(np.zeros(1))], lr=1.0)
+    sched = optim.StepLR(opt, step_size=2, gamma=0.5)
+    lrs = []
+    for _ in range(5):
+        sched.step()
+        lrs.append(opt.lr)
+    assert lrs == [1.0, 0.5, 0.5, 0.25, 0.25]
+
+
+def test_step_lr_validation():
+    opt = optim.SGD([nn.Parameter(np.zeros(1))])
+    with pytest.raises(ValueError):
+        optim.StepLR(opt, step_size=0)
+    with pytest.raises(ValueError):
+        optim.StepLR(opt, step_size=1, gamma=0.0)

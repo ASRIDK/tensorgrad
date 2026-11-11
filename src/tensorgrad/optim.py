@@ -121,6 +121,35 @@ class AdamW(Adam):
         super().step()
 
 
+class RMSprop(Optimizer):
+    """RMSprop (Tieleman & Hinton, 2012): scale steps by a running RMS of gradients."""
+
+    def __init__(
+        self,
+        params: Iterable[Parameter],
+        lr: float = 1e-2,
+        alpha: float = 0.99,
+        eps: float = 1e-8,
+        weight_decay: float = 0.0,
+    ) -> None:
+        super().__init__(params, lr)
+        if not 0.0 <= alpha < 1.0:
+            raise ValueError("alpha must be in [0, 1)")
+        self.alpha = alpha
+        self.eps = eps
+        self.weight_decay = weight_decay
+        self.square_avg = [np.zeros_like(p.data) for p in self.params]
+
+    def step(self) -> None:
+        for p, sq in zip(self.params, self.square_avg, strict=True):
+            if p.grad is None:
+                continue
+            grad = p.grad + self.weight_decay * p.data
+            sq *= self.alpha
+            sq += (1.0 - self.alpha) * grad * grad
+            p.data -= self.lr * grad / (np.sqrt(sq) + self.eps)
+
+
 def clip_grad_norm(params: Iterable[Parameter], max_norm: float) -> float:
     """Rescales gradients in place so their global L2 norm is at most `max_norm`.
 
@@ -153,3 +182,22 @@ class CosineAnnealingLR:
         progress = self.steps / self.total_steps
         cosine = 0.5 * (1.0 + np.cos(np.pi * progress))
         self.optimizer.lr = self.min_lr + (self.base_lr - self.min_lr) * cosine
+
+
+class StepLR:
+    """Multiplies the optimizer's learning rate by `gamma` every `step_size` calls to `step`."""
+
+    def __init__(self, optimizer: Optimizer, step_size: int, gamma: float = 0.1) -> None:
+        if step_size <= 0:
+            raise ValueError("step_size must be positive")
+        if gamma <= 0:
+            raise ValueError("gamma must be positive")
+        self.optimizer = optimizer
+        self.base_lr = optimizer.lr
+        self.step_size = step_size
+        self.gamma = gamma
+        self.steps = 0
+
+    def step(self) -> None:
+        self.steps += 1
+        self.optimizer.lr = self.base_lr * self.gamma ** (self.steps // self.step_size)
