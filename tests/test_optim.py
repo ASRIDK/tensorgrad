@@ -135,3 +135,41 @@ def test_step_lr_validation():
         optim.StepLR(opt, step_size=0)
     with pytest.raises(ValueError):
         optim.StepLR(opt, step_size=1, gamma=0.0)
+
+
+def _param():
+    return nn.Parameter(np.zeros(2))
+
+
+@pytest.mark.parametrize(
+    "factory",
+    [
+        lambda: optim.SGD([_param()], momentum=-0.1),
+        lambda: optim.SGD([_param()], weight_decay=-1.0),
+        lambda: optim.Adam([_param()], betas=(1.0, 0.999)),
+        lambda: optim.Adam([_param()], betas=(0.9, -0.1)),
+        lambda: optim.Adam([_param()], eps=-1e-8),
+        lambda: optim.AdamW([_param()], weight_decay=-0.01),
+        lambda: optim.RMSprop([_param()], eps=-1.0),
+        lambda: optim.RMSprop([_param()], weight_decay=-1.0),
+    ],
+)
+def test_optimizers_reject_invalid_hyperparameters(factory):
+    with pytest.raises(ValueError):
+        factory()
+
+
+def test_clip_grad_norm_rejects_non_positive_max_norm():
+    p = _param()
+    p.grad = np.ones(2)
+    for bad in (0.0, -1.0):
+        with pytest.raises(ValueError):
+            optim.clip_grad_norm([p], max_norm=bad)
+    np.testing.assert_array_equal(p.grad, np.ones(2))  # untouched
+
+
+def test_clip_grad_norm_leaves_small_gradients_unchanged():
+    p = _param()
+    p.grad = np.array([0.3, 0.4])
+    assert optim.clip_grad_norm([p], max_norm=1.0) == pytest.approx(0.5)
+    np.testing.assert_allclose(p.grad, [0.3, 0.4])
