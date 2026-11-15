@@ -38,6 +38,10 @@ class SGD(Optimizer):
         weight_decay: float = 0.0,
     ) -> None:
         super().__init__(params, lr)
+        if momentum < 0:
+            raise ValueError("momentum must be non-negative")
+        if weight_decay < 0:
+            raise ValueError("weight_decay must be non-negative")
         if nesterov and momentum == 0.0:
             raise ValueError("Nesterov momentum requires momentum > 0")
         self.momentum = momentum
@@ -73,6 +77,12 @@ class Adam(Optimizer):
         weight_decay: float = 0.0,
     ) -> None:
         super().__init__(params, lr)
+        if not all(0.0 <= b < 1.0 for b in betas):
+            raise ValueError("betas must be in [0, 1)")
+        if eps < 0:
+            raise ValueError("eps must be non-negative")
+        if weight_decay < 0:
+            raise ValueError("weight_decay must be non-negative")
         self.beta1, self.beta2 = betas
         self.eps = eps
         self.weight_decay = weight_decay
@@ -135,6 +145,10 @@ class RMSprop(Optimizer):
         super().__init__(params, lr)
         if not 0.0 <= alpha < 1.0:
             raise ValueError("alpha must be in [0, 1)")
+        if eps < 0:
+            raise ValueError("eps must be non-negative")
+        if weight_decay < 0:
+            raise ValueError("weight_decay must be non-negative")
         self.alpha = alpha
         self.eps = eps
         self.weight_decay = weight_decay
@@ -155,6 +169,8 @@ def clip_grad_norm(params: Iterable[Parameter], max_norm: float) -> float:
 
     Returns the norm before clipping.
     """
+    if max_norm <= 0:
+        raise ValueError("max_norm must be positive")
     grads = [p.grad for p in params if p.grad is not None]
     total = float(np.sqrt(sum(np.sum(g * g) for g in grads)))
     if total > max_norm:
