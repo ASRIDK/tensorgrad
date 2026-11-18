@@ -38,6 +38,13 @@ def test_cross_entropy_rejects_bad_shapes():
         F.cross_entropy(Tensor(np.zeros((3, 2))), [0, 1])
 
 
+@pytest.mark.parametrize("bad", [[0, 3], [-1, 0]])
+def test_cross_entropy_rejects_out_of_range_targets(bad):
+    # Negative targets would otherwise silently wrap around via numpy indexing.
+    with pytest.raises(ValueError, match="class indices"):
+        F.cross_entropy(Tensor(np.zeros((2, 3))), bad)
+
+
 def test_bce_with_logits_matches_reference_and_is_stable():
     z = np.array([-800.0, -2.0, 0.0, 3.0, 800.0])
     y = np.array([0.0, 1.0, 0.0, 1.0, 1.0])
