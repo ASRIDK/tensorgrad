@@ -18,6 +18,11 @@ def test_mse_matches_numpy():
     assert F.mse_loss(Tensor(a), b).item() == pytest.approx(np.mean((a - b) ** 2))
 
 
+def test_l1_matches_numpy():
+    a, b = rng.standard_normal(10), rng.standard_normal(10)
+    assert F.l1_loss(Tensor(a), b).item() == pytest.approx(np.mean(np.abs(a - b)))
+
+
 def test_huber_is_quadratic_then_linear():
     pred = Tensor(np.array([0.5, 3.0]))
     loss = F.huber_loss(pred, np.zeros(2), delta=1.0)
@@ -38,6 +43,13 @@ def test_cross_entropy_rejects_bad_shapes():
         F.cross_entropy(Tensor(np.zeros((3, 2))), [0, 1])
 
 
+@pytest.mark.parametrize("bad", [[0, 3], [-1, 0]])
+def test_cross_entropy_rejects_out_of_range_targets(bad):
+    # Negative targets would otherwise silently wrap around via numpy indexing.
+    with pytest.raises(ValueError, match="class indices"):
+        F.cross_entropy(Tensor(np.zeros((2, 3))), bad)
+
+
 def test_bce_with_logits_matches_reference_and_is_stable():
     z = np.array([-800.0, -2.0, 0.0, 3.0, 800.0])
     y = np.array([0.0, 1.0, 0.0, 1.0, 1.0])
@@ -51,6 +63,7 @@ def test_bce_with_logits_matches_reference_and_is_stable():
     "loss",
     [
         lambda x: F.mse_loss(x, np.ones((4, 3))),
+        lambda x: F.l1_loss(x, np.full((4, 3), 0.01)),
         lambda x: F.huber_loss(x * 3.0, np.zeros((4, 3))),
         lambda x: F.cross_entropy(x, [0, 1, 2, 1]),
         lambda x: F.binary_cross_entropy_with_logits(x, np.eye(4, 3)),

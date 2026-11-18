@@ -25,6 +25,11 @@ def mse_loss(prediction: Tensor, target: Tensor | ArrayLike) -> Tensor:
     return (diff * diff).mean()
 
 
+def l1_loss(prediction: Tensor, target: Tensor | ArrayLike) -> Tensor:
+    """Mean absolute error."""
+    return (prediction - _as_tensor(target)).abs().mean()
+
+
 def huber_loss(prediction: Tensor, target: Tensor | ArrayLike, delta: float = 1.0) -> Tensor:
     """Quadratic for small errors and linear for large ones; robust to outliers."""
     error = (prediction - _as_tensor(target)).abs()
@@ -42,6 +47,8 @@ def cross_entropy(logits: Tensor, targets: np.ndarray | list[int]) -> Tensor:
     targets = np.asarray(targets, dtype=np.int64)
     if logits.ndim != 2 or targets.shape != (logits.shape[0],):
         raise ValueError("expected logits of shape (N, C) and targets of shape (N,)")
+    if targets.size and (targets.min() < 0 or targets.max() >= logits.shape[1]):
+        raise ValueError(f"targets must be class indices in [0, {logits.shape[1]})")
     log_probs = log_softmax(logits, axis=1)
     return -log_probs[np.arange(len(targets)), targets].mean()
 
