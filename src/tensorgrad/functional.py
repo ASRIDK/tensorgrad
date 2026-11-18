@@ -25,6 +25,11 @@ def mse_loss(prediction: Tensor, target: Tensor | ArrayLike) -> Tensor:
     return (diff * diff).mean()
 
 
+def l1_loss(prediction: Tensor, target: Tensor | ArrayLike) -> Tensor:
+    """Mean absolute error."""
+    return (prediction - _as_tensor(target)).abs().mean()
+
+
 def huber_loss(prediction: Tensor, target: Tensor | ArrayLike, delta: float = 1.0) -> Tensor:
     """Quadratic for small errors and linear for large ones; robust to outliers."""
     error = (prediction - _as_tensor(target)).abs()
