@@ -42,6 +42,8 @@ def cross_entropy(logits: Tensor, targets: np.ndarray | list[int]) -> Tensor:
     targets = np.asarray(targets, dtype=np.int64)
     if logits.ndim != 2 or targets.shape != (logits.shape[0],):
         raise ValueError("expected logits of shape (N, C) and targets of shape (N,)")
+    if targets.size and (targets.min() < 0 or targets.max() >= logits.shape[1]):
+        raise ValueError(f"targets must be in [0, {logits.shape[1]}), got out-of-range class index")
     log_probs = log_softmax(logits, axis=1)
     return -log_probs[np.arange(len(targets)), targets].mean()
 
