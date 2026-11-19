@@ -59,3 +59,15 @@ def test_bce_with_logits_matches_reference_and_is_stable():
 )
 def test_loss_gradients(loss):
     assert gradcheck(loss, [Tensor(rng.standard_normal((4, 3)), requires_grad=True)])
+
+
+@pytest.mark.parametrize("bad", [[-1, 0], [0, 3]])
+def test_cross_entropy_rejects_out_of_range_targets(bad):
+    logits = Tensor(rng.standard_normal((2, 3)))
+    with pytest.raises(ValueError, match="out-of-range"):
+        F.cross_entropy(logits, bad)
+
+
+def test_cross_entropy_accepts_boundary_targets():
+    logits = Tensor(rng.standard_normal((2, 3)))
+    assert np.isfinite(F.cross_entropy(logits, [0, 2]).item())
