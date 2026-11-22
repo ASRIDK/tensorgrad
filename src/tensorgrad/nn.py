@@ -137,6 +137,21 @@ class ReLU(Module):
         return x.relu()
 
 
+class LeakyReLU(Module):
+    def __init__(self, negative_slope: float = 0.01) -> None:
+        if negative_slope < 0:
+            raise ValueError("negative_slope must be non-negative")
+        self.negative_slope = negative_slope
+
+    def forward(self, x: Tensor) -> Tensor:
+        return x.leaky_relu(self.negative_slope)
+
+
+class GELU(Module):
+    def forward(self, x: Tensor) -> Tensor:
+        return x.gelu()
+
+
 class Tanh(Module):
     def forward(self, x: Tensor) -> Tensor:
         return x.tanh()

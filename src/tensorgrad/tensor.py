@@ -268,6 +268,33 @@ class Tensor:
         out._backward = backward
         return out
 
+    def leaky_relu(self, negative_slope: float = 0.01) -> Tensor:
+        """x for x > 0, otherwise ``negative_slope * x``."""
+        slope = np.where(self.data > 0, 1.0, negative_slope)
+        out = self._make(self.data * slope, (self,), "leaky_relu")
+
+        def backward() -> None:
+            self._accumulate(out.grad * slope)
+
+        out._backward = backward
+        return out
+
+    def gelu(self) -> Tensor:
+        """Gaussian error linear unit (tanh approximation)."""
+        x = self.data
+        c = np.sqrt(2.0 / np.pi)
+        inner = c * (x + 0.044715 * x**3)
+        t = np.tanh(inner)
+        out = self._make(0.5 * x * (1.0 + t), (self,), "gelu")
+
+        def backward() -> None:
+            d_inner = c * (1.0 + 3.0 * 0.044715 * x**2)
+            grad = 0.5 * (1.0 + t) + 0.5 * x * (1.0 - t**2) * d_inner
+            self._accumulate(out.grad * grad)
+
+        out._backward = backward
+        return out
+
     def tanh(self) -> Tensor:
         value = np.tanh(self.data)
         out = self._make(value, (self,), "tanh")
