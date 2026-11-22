@@ -23,6 +23,8 @@ UNARY_CASES = {
     "tanh": (lambda x: x.tanh(), False),
     "sigmoid": (lambda x: x.sigmoid(), False),
     "softplus": (lambda x: x.softplus(), False),
+    "leaky_relu": (lambda x: (x + 0.1).leaky_relu(0.2), False),
+    "gelu": (lambda x: x.gelu(), False),
     "relu": (lambda x: (x + 0.1).relu(), False),
     "abs": (lambda x: x.abs(), True),
     "sum_axis0": (lambda x: x.sum(axis=0), False),
