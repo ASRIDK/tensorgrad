@@ -114,6 +114,34 @@ class Linear(Module):
         return out + self.bias if self.bias is not None else out
 
 
+class LayerNorm(Module):
+    """Normalises the last axis to zero mean and unit variance, then scales and shifts.
+
+    ``y = (x - mean) / sqrt(var + eps) * gamma + beta``, with the (biased)
+    variance taken over the last axis of size ``features``.
+    """
+
+    def __init__(self, features: int, eps: float = 1e-5, affine: bool = True) -> None:
+        if features < 1:
+            raise ValueError("features must be positive")
+        if eps <= 0:
+            raise ValueError("eps must be positive")
+        self.features = features
+        self.eps = eps
+        self.gamma = Parameter(np.ones(features)) if affine else None
+        self.beta = Parameter(np.zeros(features)) if affine else None
+
+    def forward(self, x: Tensor) -> Tensor:
+        if x.shape[-1] != self.features:
+            raise ValueError(f"expected last dimension {self.features}, got {x.shape[-1]}")
+        centered = x - x.mean(axis=-1, keepdims=True)
+        var = (centered * centered).mean(axis=-1, keepdims=True)
+        out = centered / (var + self.eps).sqrt()
+        if self.gamma is not None:
+            out = out * self.gamma + self.beta
+        return out
+
+
 class Sequential(Module):
     """Applies its layers in order."""
 

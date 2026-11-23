@@ -91,3 +91,45 @@ def test_train_and_eval_propagate_to_children():
     assert all(not m.training for m in model.modules())
     model.train()
     assert all(m.training for m in model.modules())
+
+
+def test_layernorm_normalises_last_axis():
+    rng = np.random.default_rng(0)
+    x = Tensor(rng.standard_normal((4, 6)) * 3 + 5)
+    y = nn.LayerNorm(6)(x).data
+    np.testing.assert_allclose(y.mean(axis=-1), 0.0, atol=1e-7)
+    np.testing.assert_allclose(y.var(axis=-1), 1.0, atol=1e-3)
+
+
+def test_layernorm_affine_parameters_and_options():
+    ln = nn.LayerNorm(3)
+    assert sorted(name for name, _ in ln.named_parameters()) == ["beta", "gamma"]
+    assert nn.LayerNorm(3, affine=False).parameters() == []
+    ln.gamma.data[:] = 2.0
+    ln.beta.data[:] = 1.0
+    y = ln(Tensor([[1.0, 2.0, 3.0]])).data
+    np.testing.assert_allclose(y.mean(), 1.0, atol=1e-7)
+
+
+def test_layernorm_rejects_bad_input():
+    with pytest.raises(ValueError):
+        nn.LayerNorm(0)
+    with pytest.raises(ValueError):
+        nn.LayerNorm(3, eps=0.0)
+    with pytest.raises(ValueError):
+        nn.LayerNorm(3)(Tensor(np.ones((2, 4))))
+
+
+def test_layernorm_gradients_match_finite_differences():
+    rng = np.random.default_rng(1)
+    weights = rng.standard_normal((3, 5))
+    ln = nn.LayerNorm(5)
+
+    def fn(x, gamma, beta):
+        ln.gamma, ln.beta = gamma, beta
+        return ln(x) * weights
+
+    x = Tensor(rng.standard_normal((3, 5)), requires_grad=True)
+    gamma = Tensor(rng.standard_normal(5), requires_grad=True)
+    beta = Tensor(rng.standard_normal(5), requires_grad=True)
+    assert gradcheck(fn, [x, gamma, beta])
