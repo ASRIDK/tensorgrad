@@ -40,7 +40,7 @@ through the trained network — the same idea behind differential machine learni
   `reshape`, `transpose` and fancy indexing.
 - **Neural networks** — `Module` with recursive parameter discovery, `train()`/`eval()`,
   `state_dict()`; `Linear` (He or Xavier initialization), `Sequential`, `LayerNorm`, activations and `Dropout`.
-- **Losses** — MSE, Huber, cross-entropy (via log-softmax) and binary cross-entropy with logits.
+- **Losses** — MSE, L1, Huber, hinge, cross-entropy (via log-softmax) and binary cross-entropy with logits.
 - **Optimizers** — SGD with (Nesterov) momentum, Adam, AdamW, RMSprop, step and cosine learning-rate annealing and
   gradient-norm clipping.
 - **Data** — mini-batch `DataLoader`, `train_test_split` and `StandardScaler`.

@@ -29,6 +29,22 @@ def test_huber_is_quadratic_then_linear():
     assert loss.item() == pytest.approx((0.5 * 0.25 + (3.0 - 0.5)) / 2)
 
 
+def test_hinge_matches_numpy():
+    scores = rng.standard_normal(12)
+    y = rng.choice([-1.0, 1.0], size=12)
+    expected = np.mean(np.maximum(0.0, 1.0 - y * scores))
+    assert F.hinge_loss(Tensor(scores), y).item() == pytest.approx(expected)
+
+
+def test_hinge_is_zero_beyond_the_margin():
+    assert F.hinge_loss(Tensor([2.0, -3.0]), [1.0, -1.0]).item() == 0.0
+
+
+def test_hinge_rejects_labels_outside_plus_minus_one():
+    with pytest.raises(ValueError):
+        F.hinge_loss(Tensor([0.5, 0.2]), [0, 1])
+
+
 def test_cross_entropy_matches_reference():
     logits = rng.standard_normal((6, 3))
     targets = np.array([0, 2, 1, 1, 0, 2])
@@ -65,6 +81,7 @@ def test_bce_with_logits_matches_reference_and_is_stable():
         lambda x: F.mse_loss(x, np.ones((4, 3))),
         lambda x: F.l1_loss(x, np.full((4, 3), 0.01)),
         lambda x: F.huber_loss(x * 3.0, np.zeros((4, 3))),
+        lambda x: F.hinge_loss(x, np.where(np.eye(4, 3) > 0, 1.0, -1.0)),
         lambda x: F.cross_entropy(x, [0, 1, 2, 1]),
         lambda x: F.binary_cross_entropy_with_logits(x, np.eye(4, 3)),
         lambda x: F.softmax(x, axis=1) * Tensor(np.arange(12.0).reshape(4, 3)),

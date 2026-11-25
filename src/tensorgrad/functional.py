@@ -59,3 +59,11 @@ def binary_cross_entropy_with_logits(logits: Tensor, targets: Tensor | ArrayLike
     Uses the identity  BCE(sigmoid(z), y) = softplus(z) - y * z.
     """
     return (logits.softplus() - _as_tensor(targets) * logits).mean()
+
+
+def hinge_loss(scores: Tensor, targets: Tensor | ArrayLike) -> Tensor:
+    """Mean hinge loss  max(0, 1 - y * score)  for labels `targets` in {-1, +1}."""
+    target_tensor = _as_tensor(targets)
+    if not np.isin(target_tensor.data, (-1.0, 1.0)).all():
+        raise ValueError("hinge_loss targets must be -1 or +1")
+    return (1.0 - target_tensor * scores).relu().mean()
