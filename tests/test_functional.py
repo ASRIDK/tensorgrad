@@ -89,3 +89,14 @@ def test_bce_with_logits_matches_reference_and_is_stable():
 )
 def test_loss_gradients(loss):
     assert gradcheck(loss, [Tensor(rng.standard_normal((4, 3)), requires_grad=True)])
+
+
+@pytest.mark.parametrize("delta", [0.0, -1.0])
+def test_huber_rejects_non_positive_delta(delta):
+    with pytest.raises(ValueError, match="delta"):
+        F.huber_loss(Tensor([1.0, 2.0]), [0.0, 0.0], delta=delta)
+
+
+def test_huber_matches_l1_scaling_for_large_errors():
+    pred = Tensor(np.array([10.0, -10.0]))
+    assert F.huber_loss(pred, np.zeros(2), delta=2.0).item() == pytest.approx(2.0 * (10.0 - 1.0))
