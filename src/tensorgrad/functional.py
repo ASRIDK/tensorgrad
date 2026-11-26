@@ -32,6 +32,8 @@ def l1_loss(prediction: Tensor, target: Tensor | ArrayLike) -> Tensor:
 
 def huber_loss(prediction: Tensor, target: Tensor | ArrayLike, delta: float = 1.0) -> Tensor:
     """Quadratic for small errors and linear for large ones; robust to outliers."""
+    if delta <= 0:
+        raise ValueError("delta must be positive")
     error = (prediction - _as_tensor(target)).abs()
     quadratic_mask = Tensor((error.data <= delta).astype(np.float64))
     quadratic = 0.5 * error * error
